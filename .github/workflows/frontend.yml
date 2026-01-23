@@ -1,0 +1,40 @@
+name: Build and deploy frontend CI Pipeline
+
+on: 
+  push:
+    branches: [main]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 18
+      
+      - name: Install and build
+        run: |
+            cd frontend
+            npm ci
+            npm run build
+
+      - name: Copy build to server
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.FRONTEND_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 22
+          source: "frontend/build/*"
+          target: "/var/www/img2vid/"
+
+      - name: Restart nginx
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.FRONTEND_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            sudo systemctl reload nginx || sudo systemctl restart nginx
